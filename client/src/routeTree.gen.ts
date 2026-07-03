@@ -15,7 +15,12 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AnnotateAssignmentIdRouteImport } from './routes/annotate.$assignmentId'
+import { Route as AdminVideosRouteImport } from './routes/admin/videos'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
+import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
+import { Route as AdminVideoVideoIdRouteImport } from './routes/admin/video.$videoId'
+import { Route as AdminFrameFrameIdRouteImport } from './routes/admin/frame.$frameId'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -47,9 +52,34 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const AnnotateAssignmentIdRoute = AnnotateAssignmentIdRouteImport.update({
+  id: '/annotate/$assignmentId',
+  path: '/annotate/$assignmentId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminVideosRoute = AdminVideosRouteImport.update({
+  id: '/videos',
+  path: '/videos',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReviewsRoute = AdminReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminVideoVideoIdRoute = AdminVideoVideoIdRouteImport.update({
+  id: '/video/$videoId',
+  path: '/video/$videoId',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminFrameFrameIdRoute = AdminFrameFrameIdRouteImport.update({
+  id: '/frame/$frameId',
+  path: '/frame/$frameId',
   getParentRoute: () => AdminRoute,
 } as any)
 
@@ -59,16 +89,26 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/admin/reviews': typeof AdminReviewsRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/videos': typeof AdminVideosRoute
+  '/annotate/$assignmentId': typeof AnnotateAssignmentIdRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/frame/$frameId': typeof AdminFrameFrameIdRoute
+  '/admin/video/$videoId': typeof AdminVideoVideoIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/admin/reviews': typeof AdminReviewsRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/videos': typeof AdminVideosRoute
+  '/annotate/$assignmentId': typeof AnnotateAssignmentIdRoute
   '/admin': typeof AdminIndexRoute
+  '/admin/frame/$frameId': typeof AdminFrameFrameIdRoute
+  '/admin/video/$videoId': typeof AdminVideoVideoIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,8 +117,13 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/admin/reviews': typeof AdminReviewsRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/videos': typeof AdminVideosRoute
+  '/annotate/$assignmentId': typeof AnnotateAssignmentIdRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/frame/$frameId': typeof AdminFrameFrameIdRoute
+  '/admin/video/$videoId': typeof AdminVideoVideoIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -88,10 +133,26 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/register'
+    | '/admin/reviews'
     | '/admin/users'
+    | '/admin/videos'
+    | '/annotate/$assignmentId'
     | '/admin/'
+    | '/admin/frame/$frameId'
+    | '/admin/video/$videoId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/login' | '/register' | '/admin/users' | '/admin'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/login'
+    | '/register'
+    | '/admin/reviews'
+    | '/admin/users'
+    | '/admin/videos'
+    | '/annotate/$assignmentId'
+    | '/admin'
+    | '/admin/frame/$frameId'
+    | '/admin/video/$videoId'
   id:
     | '__root__'
     | '/'
@@ -99,8 +160,13 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/register'
+    | '/admin/reviews'
     | '/admin/users'
+    | '/admin/videos'
+    | '/annotate/$assignmentId'
     | '/admin/'
+    | '/admin/frame/$frameId'
+    | '/admin/video/$videoId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -109,6 +175,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  AnnotateAssignmentIdRoute: typeof AnnotateAssignmentIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -155,6 +222,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/annotate/$assignmentId': {
+      id: '/annotate/$assignmentId'
+      path: '/annotate/$assignmentId'
+      fullPath: '/annotate/$assignmentId'
+      preLoaderRoute: typeof AnnotateAssignmentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/videos': {
+      id: '/admin/videos'
+      path: '/videos'
+      fullPath: '/admin/videos'
+      preLoaderRoute: typeof AdminVideosRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/users': {
       id: '/admin/users'
       path: '/users'
@@ -162,17 +243,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/reviews': {
+      id: '/admin/reviews'
+      path: '/reviews'
+      fullPath: '/admin/reviews'
+      preLoaderRoute: typeof AdminReviewsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/video/$videoId': {
+      id: '/admin/video/$videoId'
+      path: '/video/$videoId'
+      fullPath: '/admin/video/$videoId'
+      preLoaderRoute: typeof AdminVideoVideoIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/frame/$frameId': {
+      id: '/admin/frame/$frameId'
+      path: '/frame/$frameId'
+      fullPath: '/admin/frame/$frameId'
+      preLoaderRoute: typeof AdminFrameFrameIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
+  AdminReviewsRoute: typeof AdminReviewsRoute
   AdminUsersRoute: typeof AdminUsersRoute
+  AdminVideosRoute: typeof AdminVideosRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminFrameFrameIdRoute: typeof AdminFrameFrameIdRoute
+  AdminVideoVideoIdRoute: typeof AdminVideoVideoIdRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminReviewsRoute: AdminReviewsRoute,
   AdminUsersRoute: AdminUsersRoute,
+  AdminVideosRoute: AdminVideosRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminFrameFrameIdRoute: AdminFrameFrameIdRoute,
+  AdminVideoVideoIdRoute: AdminVideoVideoIdRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
@@ -183,6 +293,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  AnnotateAssignmentIdRoute: AnnotateAssignmentIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -2,9 +2,9 @@ import {
 	HeadContent,
 	Scripts,
 	createRootRoute,
-	Outlet,
 } from "@tanstack/react-router";
 import { AuthProvider } from "#/lib/auth";
+import { SyncBufferProvider } from "#/lib/sync-buffer";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
@@ -26,7 +26,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<HeadContent />
 			</head>
 			<body>
-				<AuthProvider>{children}</AuthProvider>
+				<AuthProvider><SyncBufferProvider>{children}</SyncBufferProvider></AuthProvider>
 				<Scripts />
 			</body>
 		</html>
