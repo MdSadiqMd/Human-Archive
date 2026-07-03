@@ -11,6 +11,9 @@ type Config struct {
 	JWTSecret     string
 	AdminEmail    string
 	AdminPassword string
+	FramesDir     string
+	S3Bucket      string
+	S3Region      string
 }
 
 func Load() *Config {
@@ -20,6 +23,9 @@ func Load() *Config {
 		JWTSecret:     mustEnv("JWT_SECRET"),
 		AdminEmail:    getEnv("ADMIN_EMAIL", "admin@example.com"),
 		AdminPassword: os.Getenv("ADMIN_PASSWORD"),
+		FramesDir:     getEnv("FRAMES_DIR", "./output"),
+		S3Bucket:      os.Getenv("S3_BUCKET"),
+		S3Region:      getEnv("AWS_REGION", "ap-south-1"),
 	}
 }
 

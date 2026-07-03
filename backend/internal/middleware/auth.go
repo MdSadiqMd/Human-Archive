@@ -21,13 +21,18 @@ const (
 func RequireAuth(cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			h := r.Header.Get("Authorization")
-			if !strings.HasPrefix(h, "Bearer ") {
+			var tokenStr string
+			if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+				tokenStr = strings.TrimPrefix(h, "Bearer ")
+			} else if t := r.URL.Query().Get("token"); t != "" {
+				tokenStr = t
+			}
+			if tokenStr == "" {
 				jsonErr(w, "missing or invalid authorization header", http.StatusUnauthorized)
 				return
 			}
 
-			claims, err := token.Parse(strings.TrimPrefix(h, "Bearer "), cfg.JWTSecret)
+			claims, err := token.Parse(tokenStr, cfg.JWTSecret)
 			if err != nil {
 				jsonErr(w, "invalid or expired token", http.StatusUnauthorized)
 				return
