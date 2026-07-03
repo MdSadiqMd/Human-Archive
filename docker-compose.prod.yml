@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: humanarchive
+      POSTGRES_USER: ${POSTGRES_USER:-ha_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ha_user} -d humanarchive"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-ha_user}:${POSTGRES_PASSWORD}@postgres:5432/humanarchive?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?ADMIN_EMAIL required}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD required}
+      PORT: 8080
+      FRAMES_DIR: /data/output
+      S3_BUCKET: ${S3_BUCKET:-}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    volumes:
+      - frames_data:/data/output
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+      - external
+
+  pipeline:
+    build:
+      context: ./pipeline
+      dockerfile: Dockerfile
+    restart: "no"
+    profiles:
+      - pipeline
+    environment:
+      S3_BUCKET: ${S3_BUCKET:?S3_BUCKET required for pipeline}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?AWS credentials required}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS credentials required}
+      OUTPUT_DIR: /data/output
+    volumes:
+      - frames_data:/data/output
+    networks:
+      - internal
+
+volumes:
+  pgdata:
+  frames_data:
+
+networks:
+  internal:
+    driver: bridge
+  external:
+    driver: bridge
