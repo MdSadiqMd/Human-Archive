@@ -75,8 +75,8 @@ async function replayOp(op: BufferOp): Promise<void> {
 }
 
 export function SyncBufferProvider({ children }: { children: React.ReactNode }) {
-  const [online, setOnline] = useState(navigator.onLine)
-  const [entries, setEntries] = useState<BufferEntry[]>(load)
+  const [online, setOnline] = useState(true)
+  const [entries, setEntries] = useState<BufferEntry[]>([])
   const [flushing, setFlushing] = useState(false)
   const flushingRef = useRef(false)
 
@@ -121,6 +121,8 @@ export function SyncBufferProvider({ children }: { children: React.ReactNode }) 
   }, [remove])
 
   useEffect(() => {
+    setOnline(navigator.onLine)
+    setEntries(load())
     const onOnline = () => { setOnline(true); refresh() }
     const onOffline = () => setOnline(false)
     const onChanged = () => refresh()

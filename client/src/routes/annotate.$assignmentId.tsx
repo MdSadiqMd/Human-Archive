@@ -35,7 +35,7 @@ function AnnotatePage() {
   const historyRef = useRef<HistoryEntry[]>([])
   const historyIndexRef = useRef(-1)
   const [, forceRender] = useState(0)
-  const canvasRef = useRef<ZoomControl>(null)
+  const canvasRef = useRef<ZoomControl | null>(null)
   const [canvasZoom, setCanvasZoom] = useState(1)
   const { add: bufferAdd } = useSyncBuffer()
 
