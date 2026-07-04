@@ -2,6 +2,17 @@
 
 Egocentric hand-tracking annotation platform with difficulty-aware frame classification.
 
+## Table of Contents
+
+- [Architecture Diagram](#architecture-diagram)
+- [Model Architecture](#model-architecture)
+  - [Scoring and Pipeline Notes](#scoring-and-pipeline-notes)
+  - [Hand-Coded Score Function](#hand-coded-score-function)
+- [Per-Frame Features](#per-frame-features)
+- [Napkin Math](#napkin-mathwhy-not)
+- [Setup](#setup)
+- [Deployment](#deployment)
+
 ## Architecture Diagram
 ```mermaid
 sequenceDiagram
@@ -84,7 +95,7 @@ sequenceDiagram
 | **Infra** | Terraform | AWS EC2, Docker, security groups |
 
 ## Model Architecture
-lassify first-person video frames into 5 categories — `no_hands`, `low_lighting`, `occluded`, `dexterous_pose`, `easy`.
+Classify first-person video frames into 5 categories — `no_hands`, `low_lighting`, `occluded`, `dexterous_pose`, `easy`.
 
 **Approach 1 (Naive baseline)**: Started simple: uniform 2fps sampling + single MediaPipe detector in IMAGE mode. Got 70% `no_hands`, 20% `dexterous`, 10% `easy` — but zero occlusion or low-lighting detection. Clear failure: occlusion, lighting, and complex poses were invisible.  
 Insight: MediaPipe's BlazePalm fails entirely under occlusion (no partial landmarks), so a single frame can't distinguish `no_hands` from `occluded`.
@@ -189,6 +200,139 @@ sequenceDiagram
         Note over Output: Outputs report.json with<br/>per-frame features + scores<br/>for ingestion into backend DB
     end
 ```
+
+### Scoring & Pipeline Notes
+
+#### Scoring is NOT from MediaPipe
+
+The MediaPipe Hand Landmarker is **not a binary classifier**. It is a palm detector (BlazePalm → bounding boxes) + 21-keypoint landmark regressor. The 5-class scoring in `report.json` comes from **hand-coded formulas** in `FrameClassifier` (`classifier/scoring.py`):
+
+```
+s_low  = 0.50·brightness_term + 0.25·p10_term + 0.25·contrast_term    (with hard-dark floor)
+s_occ  = 0.34·partial_loss + 0.22·border_clip + 0.22·blur + 0.22·low_conf + 0.35·disagreement
+s_dex  = 0.40·articulation + 0.32·finger_spread + 0.28·self_overlap + 0.10·jitter
+local_strength = 0.60·handedness + 0.25·completeness + 0.15·size
+```
+
+The only binary decision is Stage 1 of `classify()` — the **presence gate** (hand present vs no hand), fusing `local_strength` with temporal bridging via `nearest_conf_dt`.
+
+#### DisagreementEnsemble — two detectors, not two models
+
+The "two models" from `model_improvement.md` are actually **two copies of the same MediaPipe model at different confidence thresholds**, run **sequentially** on the same frame:
+
+| Detector | Confidence | Purpose |
+|---|---|---|
+| **Primary** (strict) | 0.5 | High-precision — trusted detections |
+| **Secondary** (permissive) | 0.15 | High-recall — catches borderline hands |
+
+```python
+# classifier/detector.py:108 — runs one after another, not in parallel
+r1 = self.primary.detect(bgr, timestamp_ms)    # strict
+r2 = self.secondary.detect(bgr, timestamp_ms)   # permissive
+```
+
+The **disagreement signal** `max(0, n_secondary − n_primary) / 2.0` powers the occlusion score — when the permissive detector sees more hands than the strict one, the frame is likely occluded or borderline.
+
+#### The full pipeline in three phases
+
+The video is processed in **3 deterministic phases**, not "sample → score → classify":
+
+```
+PHASE 1 — HybridSampler.plan():
+    Scan video at ~1fps (no ML, just brightness/motion/skin-proxy)
+    Detect hand events and confidence drops
+    Pre-plan which frames to process (uniform 1fps + event bursts at 5-10fps)
+    → Sampling is decided UP FRONT, nothing is ignored after
+
+PHASE 2 — VideoClassifier._detect_pass():
+    For each planned frame: read, compute ImageStats, optionally CLAHE,
+    run DisagreementEnsemble, extract HandFeatures, compute local_strength,
+    JPEG-encode → cache as _Record[]
+
+PHASE 3 — VideoClassifier.process() loop:
+    For each cached _Record: compute track_support + nearest_conf_dt + jitter,
+    then call FrameClassifier.classify() which simultaneously computes
+    all scores (s_low, s_occ, s_dex) AND routes to the final label
+    → Scoring IS the classification; they are not separate steps
+```
+
+### Hand-Coded Score Function
+
+```mermaid
+flowchart TD
+    F["features: image_stats, hand_features<br/>local_strength, model_disagreement<br/>nearest_conf_dt, track_support"]
+
+    F --> S1{"Stage 1: Presence<br/>local_strength ≥ 0.50?"}
+
+    S1 -->|Yes| P_present["present = True<br/>lost = False"]
+    S1 -->|No| Bridge{"nearest_conf_dt ≤ 0.7s<br/>OR (has_hint AND ≤ 1.4s)?"}
+    Bridge -->|Yes| P_bridged["present = True<br/>lost = True<br/>(temporal bridge)"]
+    Bridge -->|No| L_nohands["label: no_hands<br/>s_nohands = 1 - max(ls, support)"]
+
+    P_present --> S_low{"s_low ≥ 0.35?"}
+    P_bridged --> S_low
+
+    S_low -->|Yes| L_low["label: low_lighting"]
+    S_low -->|No| S_lost{"lost = True?"}
+    S_lost -->|Yes| L_occ_temporal["label: occluded<br/>(temporal dropout)"]
+
+    S_lost -->|No| S_dex{"s_dex ≥ 0.30<br/>AND s_dex ≥ s_occ?"}
+    S_dex -->|Yes| L_dex1["label: dexterous_pose"]
+
+    S_dex -->|No| S_occ{"s_occ ≥ 0.30?"}
+    S_occ -->|Yes| L_occ1["label: occluded"]
+
+    S_occ -->|No| Easy{"_is_easy() passes?<br/>handedness≥0.7, blur≤0.25<br/>scores≤easy_max, all hand<br/>landmarks visible"}
+    Easy -->|Yes| L_easy["label: easy"]
+
+    Easy -->|No| S_fallback{"s_occ ≥ s_dex?"}
+    S_fallback -->|Yes| L_occ2["label: occluded"]
+    S_fallback -->|No| L_dex2["label: dexterous_pose"]
+
+    subgraph Scores["Score Computation (per frame)"]
+        S_feat["ImageStats<br/>mean_lum, p10_lum, contrast, blur"]
+        S_ens["DisagreementEnsemble<br/>primary conf=0.5, secondary conf=0.15"]
+        S_feat2["HandFeatures<br/>articulation, finger_spread, border_clip<br/>out_of_frame, handedness_score"]
+        S_jit["Jitter<br/>1 - mean(IoU adjacent bboxes)"]
+    end
+
+    S_feat & S_ens & S_feat2 & S_jit --> F
+
+    Scores -.- Leg["s_low = 0.5·brightness + 0.25·p10_lum + 0.25·contrast<br/>s_occ = 0.34·partial + 0.22·border + 0.22·blur + 0.22·low_conf + 0.35·disagreement<br/>s_dex = 0.4·articulation + 0.32·finger_spread + 0.28·self_overlap + 0.1·jitter<br/>local_strength = 0.6·handedness + 0.25·completeness + 0.15·size"]
+
+    style L_nohands fill:#5a4a4a,color:#fff
+    style L_low fill:#5a5a3a,color:#fff
+    style L_occ_temporal fill:#4a5a5a,color:#fff
+    style L_occ1 fill:#4a5a5a,color:#fff
+    style L_occ2 fill:#4a5a5a,color:#fff
+    style L_dex1 fill:#5a4a5a,color:#fff
+    style L_dex2 fill:#5a4a5a,color:#fff
+    style L_easy fill:#3a5a3a,color:#fff
+```
+
+### Per-Frame Features
+
+Each entry in `report.json` contains the following features, extracted per sampled frame:
+
+| Feature | Source | Description |
+|---|---|---|
+| `mean_luminance` | `ImageStats` | Mean grayscale brightness [0,1] — primary low-light signal |
+| `p10_luminance` | `ImageStats` | 10th percentile brightness — shadow depth indicator |
+| `contrast` | `ImageStats` | Standard deviation of luminance |
+| `blur` | `ImageStats` | Laplacian variance — edge sharpness (higher = sharper) |
+| `hands` | `HandFeatures` | Array of detected hands, each with: `handedness`, `score` (MediaPipe handedness confidence [0,1]), `bbox` (normalised [x1,y1,x2,y2]), `articulation` (sum of finger-joint bend angles, normalised), `finger_spread` (std/mean of inter-fingertip distances), `out_of_frame` (count of 21 landmarks outside [0,1] bounds), `border_clipping` (fraction of bbox edges within 2% of frame border) |
+| `local_strength` | `FrameClassifier` | `0.6·handedness_score + 0.25·completeness + 0.15·size_signal` — primary-anchored detection quality; halved if only the permissive detector fired |
+| `track_support` | `VideoClassifier._track_support()` | Maximum `local_strength` among neighbours within ±2.0s temporal window |
+| `nearest_conf_dt` | `VideoClassifier._track_support()` | Seconds to the nearest neighbour whose `local_strength` clears `track_strong` (0.55) |
+| `jitter` | `VideoClassifier.process()` | `1 − mean(IoU)` between adjacent-frame bounding boxes |
+| `model_disagreement` | `DisagreementEnsemble` | `max(0, n_secondary − n_primary) / 2.0` — how many more hands the permissive (conf=0.15) detector finds vs the strict (conf=0.5) detector. A strong occlusion signal |
+| `primary_hands` | `DisagreementEnsemble` | Hand count from the strict detector (conf=0.5) |
+| `secondary_hands` | `DisagreementEnsemble` | Hand count from the permissive detector (conf=0.15) |
+| `clahe_applied` | `VideoClassifier._detect_pass()` | Whether CLAHE enhancement was applied (`mean_luminance < 0.32`) |
+| `sample_reason` | `HybridSampler` | Why this frame was sampled: `uniform` / `hand_event` / `confidence_drop` / `transition_window` |
+| `sample_rate_used` | `HybridSampler` | Sampling rate for this frame: 1, 5, or 10 fps |
+| `event_id` | `HybridSampler` | Groups frames that belong to the same detected event |
+
 ## Napkin Math(why not)
 Assuming we're only using AWS    
 2000 annotators × 500 frames/day = 1M annotations/day
