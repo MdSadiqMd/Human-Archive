@@ -1,8 +1,4 @@
-import {
-	HeadContent,
-	Scripts,
-	createRootRoute,
-} from "@tanstack/react-router";
+import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import { AuthProvider } from "#/lib/auth";
 import { SyncBufferProvider } from "#/lib/sync-buffer";
 import appCss from "../styles.css?url";
@@ -26,7 +22,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<HeadContent />
 			</head>
 			<body>
-				<AuthProvider><SyncBufferProvider>{children}</SyncBufferProvider></AuthProvider>
+				<AuthProvider>
+					<SyncBufferProvider>{children}</SyncBufferProvider>
+				</AuthProvider>
 				<Scripts />
 			</body>
 		</html>

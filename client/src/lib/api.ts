@@ -211,7 +211,11 @@ export interface ExportRow {
 	annotator_email: string;
 }
 
-export function frameImageUrl(stem: string, label: string, filename: string): string {
+export function frameImageUrl(
+	stem: string,
+	label: string,
+	filename: string,
+): string {
 	const token = localStorage.getItem("token");
 	const url = `${API_BASE}/frames/${stem}/frames/${label}/${filename}`;
 	return token ? `${url}?token=${encodeURIComponent(token)}` : url;
@@ -247,19 +251,27 @@ export const api = {
 		deleteUser: (id: string) =>
 			request<void>(`/admin/users/${id}`, { method: "DELETE" }),
 		ingest: (directory: string) =>
-			request<{ message: string; videos: number; frames: number }>("/admin/ingest", {
-				method: "POST",
-				body: JSON.stringify({ directory }),
-			}),
+			request<{ message: string; videos: number; frames: number }>(
+				"/admin/ingest",
+				{
+					method: "POST",
+					body: JSON.stringify({ directory }),
+				},
+			),
 		listVideos: () => request<Video[]>("/admin/videos"),
 		getVideo: (id: string) => request<Video>(`/admin/videos/${id}`),
-		listFrames: (videoId: string, params?: { label?: string; page?: number; per_page?: number }) => {
+		listFrames: (
+			videoId: string,
+			params?: { label?: string; page?: number; per_page?: number },
+		) => {
 			const q = new URLSearchParams();
 			if (params?.label && params.label !== "all") q.set("label", params.label);
 			if (params?.page) q.set("page", String(params.page));
 			if (params?.per_page) q.set("per_page", String(params.per_page));
 			const qs = q.toString();
-			return request<PaginatedFrames>(`/admin/videos/${videoId}/frames${qs ? `?${qs}` : ""}`);
+			return request<PaginatedFrames>(
+				`/admin/videos/${videoId}/frames${qs ? `?${qs}` : ""}`,
+			);
 		},
 		getFrame: (id: string) => request<Frame>(`/admin/frames/${id}`),
 		assignFrames: (frameIds: string[], assigneeId: string) =>
@@ -267,7 +279,11 @@ export const api = {
 				method: "POST",
 				body: JSON.stringify({ frame_ids: frameIds, assignee_id: assigneeId }),
 			}),
-		assignByFilter: (params: { video_id?: string; label?: string; assignee_id: string }) =>
+		assignByFilter: (params: {
+			video_id?: string;
+			label?: string;
+			assignee_id: string;
+		}) =>
 			request<{ assigned: number }>("/admin/assignments/by-filter", {
 				method: "POST",
 				body: JSON.stringify(params),
@@ -284,7 +300,13 @@ export const api = {
 			request<AnnotationWithMeta | null>(`/admin/frames/${frameId}/annotation`),
 		listReviewAnnotators: () =>
 			request<AnnotatorReviewStats[]>("/admin/reviews/annotators"),
-		listReviews: (params?: { status?: string; video_id?: string; annotator_id?: string; page?: number; per_page?: number }) => {
+		listReviews: (params?: {
+			status?: string;
+			video_id?: string;
+			annotator_id?: string;
+			page?: number;
+			per_page?: number;
+		}) => {
 			const q = new URLSearchParams();
 			if (params?.status) q.set("status", params.status);
 			if (params?.video_id) q.set("video_id", params.video_id);
@@ -294,7 +316,15 @@ export const api = {
 			const qs = q.toString();
 			return request<PaginatedReviews>(`/admin/reviews${qs ? `?${qs}` : ""}`);
 		},
-		updateAnnotation: (id: string, data: { no_hands: boolean; bounding_boxes: BoundingBox[]; notes: string; review_notes: string }) =>
+		updateAnnotation: (
+			id: string,
+			data: {
+				no_hands: boolean;
+				bounding_boxes: BoundingBox[];
+				notes: string;
+				review_notes: string;
+			},
+		) =>
 			request<{ status: string }>(`/admin/annotations/${id}`, {
 				method: "PUT",
 				body: JSON.stringify(data),
