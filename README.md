@@ -9,7 +9,7 @@ Egocentric hand-tracking annotation platform with difficulty-aware frame classif
   - [Scoring and Pipeline Notes](#scoring-and-pipeline-notes)
   - [Hand-Coded Score Function](#hand-coded-score-function)
 - [Per-Frame Features](#per-frame-features)
-- [Napkin Math](#napkin-mathwhy-not)
+- [Napkin Math(✨)](#napkin-mathwhy-not)
 - [Setup](#setup)
 - [Deployment](#deployment)
 

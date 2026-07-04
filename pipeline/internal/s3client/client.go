@@ -70,10 +70,7 @@ func New(_ context.Context, profile, configDir string) (*s3.Client, error) {
 		return nil, fmt.Errorf("credentials not found for profile %q in %s", profile, credsFile)
 	}
 
-	cfgVals, err := parseINI(configFile, profile)
-	if err != nil {
-		return nil, fmt.Errorf("parse config %s: %w", configFile, err)
-	}
+	cfgVals, _ := parseINI(configFile, profile)
 	region := cfgVals["region"]
 	if region == "" {
 		region = "ap-south-1"
