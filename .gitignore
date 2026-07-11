@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+
+# Build outputs
+dist/
+.wrangler/
+pipeline/bin/
+pipeline/output-*/
+
+# Terraform
+infra/.terraform/
+infra/terraform.tfstate
+infra/terraform.tfstate.backup
+infra/terraform.tfvars
+*.tfvars
+!*.tfvars.example
+
+# Environment files with secrets
+.env
+.env.local
+.env.production
+client/.env.production
+!.env.example
+!.env.production.example
+!client/.env.example
+!client/.env.production.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Videos (large files - download separately)
+videos/
+*.mp4
+
+# Keep output for demo but ignore in git
+# To include output for demo, comment this line
+# output/
