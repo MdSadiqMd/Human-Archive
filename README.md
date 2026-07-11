@@ -2,6 +2,14 @@
 
 Egocentric hand-tracking annotation platform with difficulty-aware frame classification.
 
+## Problem
+
+This project addresses problem of labeling hands in egocentric (first-person) video at scale. Unlike third-person footage, egocentric video is captured from head/chest-mounted cameras where hands frequently enter/leave the frame, interact with objects, appear at unusual angles, and are often partially occluded or poorly lit.
+
+The platform enables annotators to draw hand bounding boxes and assign handedness (left/right) on extracted video frames. A classification pipeline automatically triages frames into difficulty categories (occluded, low-lighting, dexterous poses) so that the hardest cases — where machine detection is most uncertain — are prioritized for human annotation.
+
+The core insight: **invert model confidence**. Frames where detectors produce low confidence, disagree with each other, or miss hands that context suggests are present are the most valuable for human labeling
+
 ## Table of Contents
 
 - [Architecture Diagram](#architecture-diagram)
@@ -372,6 +380,59 @@ Three levers pull the most weight:
 
 That gets us to ~$4,000/mo. The big numbers to watch: S3 dominates at 56% of the bill (we're storing a lot of video), egress is 20%, and surprisingly pipeline compute is only 12%. Storage lifecycle policies are our most powerful lever, not instance right-sizing
 
+## Processing Workflows
+
+Two workflows for video processing — cloud (S3) and local (offline):
+
+### Workflow 1: Cloud Processing (S3 → Process → S3)
+
+Downloads video from S3, classifies frames, uploads results back to S3.
+
+```bash
+# Build the pipeline binary first
+just build
+
+# Process bakery videos from S3 (default: 1 video)
+just run-cloud
+
+# Process with options: limit, prefix, destination bucket
+just run-cloud 5 bakery demo-ha-sadiq
+```
+
+Requires AWS credentials with access to `demo-hand-tracking-bucket`.
+
+### Workflow 2: Local Processing (Local Video → Local Frames)
+
+Fully offline — no cloud access needed.
+
+```bash
+# Process any local video file
+just run-local videos/bakery/clip.mp4
+
+# Output: output/<video_stem>/frames/{label}/*.jpg
+#         output/<video_stem>/report.json
+```
+
+Shortcut for the bakery demo:
+```bash
+# Place video at videos/bakery/clip.mp4, then:
+just run-bakery
+```
+
+### Output Structure
+
+Both workflows produce:
+```
+output/<video_stem>/
+├── report.json              # Per-frame features + classification
+└── frames/
+    ├── no_hands/           # Frames with no hands detected
+    ├── low_lighting/       # Dark frames
+    ├── occluded/           # Hands present but obscured
+    ├── dexterous_pose/     # Complex hand poses
+    └── easy/               # Clear, well-lit hands
+```
+
 ## Setup
 
 1. Clone and prepare the environment
@@ -417,7 +478,7 @@ pnpm run deploy        # deploy to Cloudflare Workers
 docker compose up -d --build
 
 # Run the classifier pipeline on a local video
-just classify path/to/video.mp4
+just run-local path/to/video.mp4
 
 # Ingest results into backend
 just ingest
